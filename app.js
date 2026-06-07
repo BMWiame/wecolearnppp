@@ -235,6 +235,13 @@ function initDashboard() {
    ROOM
    -------------------------------------------------- */
 async function joinRoom(room) {
+  // FIX: Stop any existing camera stream before re-rendering the room,
+  // otherwise the old stream keeps the camera busy and video-self gets destroyed.
+  if (window._camStream) {
+    window._camStream.getTracks().forEach(t => t.stop());
+    window._camStream = null;
+  }
+
   AppState.activeRoom = room;
   AppState.messages   = [];
   AppState.micOn      = false;
@@ -302,9 +309,19 @@ function renderRoom(room) {
   const videosEl = document.getElementById('sidebar-videos');
   if (videosEl) {
     const participants = AppState.participantsByRoom[room.id] || [];
+
+    // FIX: Rebuild the self tile with the video element and camera placeholder
+    // so that the camera button in index.html can always find #video-self and
+    // #cam-placeholder-self regardless of how many times renderRoom is called.
     videosEl.innerHTML = `
-      <div class="video-tile" data-user-id="${AppState.currentUser.id}" data-action="open-profile-self">
-        <span class="video-avatar-large">${AppState.currentUser.avatar}</span>
+      <div class="video-tile" id="tile-self" style="cursor:default;" data-user-id="${AppState.currentUser.id}" data-action="open-profile-self">
+        <div class="cam-placeholder" id="cam-placeholder-self">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          <span>Caméra off</span>
+        </div>
+        <video id="video-self" autoplay muted playsinline style="display:none;"></video>
         <div class="video-label">Vous</div>
       </div>
       ${participants.map(p => `
