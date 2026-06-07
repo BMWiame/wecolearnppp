@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WeCoLearn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    /* ── FONT FIX ── */
+    body, input, textarea, button, select {
+      font-family: 'DM Sans', system-ui, sans-serif !important;
+    }
+    h1,h2,h3,h4,.dash-greeting,.login-title,.room-title,.create-modal-title,
+    .profile-name,.btn-create,.dash-logo,.btn-primary,.btn-save,.btn-end-session {
+      font-family: 'Syne', sans-serif !important;
+    }
+    .notes-label,.chat-msg-sender,.login-footer,.profile-school,.dash-profile-label,
+    .room-online,.room-tab,.badge-secure,.form-label,.wb-btn,.edit-label,
+    .btn-report-submit,.rooms-section-title {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+    .notes-editor { font-family: 'JetBrains Mono', monospace !important; }
+
+    /* ── ROOM HEIGHT FIX ── */
+    #view-room { height:100vh; overflow:hidden; flex-direction:column; }
+    .room-body { flex:1; min-height:0; display:flex; overflow:hidden; }
+    .room-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+    .room-content { flex:1; padding:1.25rem 1.75rem; overflow:hidden; display:flex; flex-direction:column; min-height:0; }
+
+    /* ── TAB PANES ── */
+    .tab-pane { display:none; flex-direction:column; flex:1; min-height:0; }
+    .tab-pane.active { display:flex; }
+    .notes-editor { flex:1; min-height:0; }
+
+    /* ── WHITEBOARD ── */
+    #whiteboard-canvas {
+      flex:1; min-height:0; width:100%; cursor:crosshair;
+      border-radius:1rem; background:#0a0e1a; display:block; touch-action:none;
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    .wb-toolbar {
+      display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;
+      padding:0.55rem 0.85rem; margin-bottom:0.75rem;
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07);
+      border-radius:0.75rem;
+    }
+    .wb-color {
+      width:20px; height:20px; border-radius:50%; border:2px solid transparent;
+      cursor:pointer; transition:transform 0.15s, border-color 0.15s; flex-shrink:0;
+    }
+    .wb-color:hover,.wb-color.active { transform:scale(1.3); border-color:rgba(255,255,255,0.8); }
+    .wb-sep { width:1px; height:18px; background:rgba(255,255,255,0.1); margin:0 0.1rem; flex-shrink:0; }
+    .wb-btn {
+      font-size:0.58rem; font-weight:500; text-transform:uppercase; letter-spacing:0.08em;
+      color:rgba(255,255,255,0.45); background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.07); padding:0.28rem 0.65rem;
+      border-radius:0.4rem; cursor:pointer; transition:all 0.15s; white-space:nowrap;
+    }
+    .wb-btn:hover { color:white; background:rgba(255,255,255,0.1); }
+    .wb-btn.active { background:rgba(79,70,229,0.3); color:#818cf8; border-color:rgba(79,70,229,0.4); }
+    .wb-size { display:flex; align-items:center; gap:0.35rem; }
+    .wb-size input[type=range] { width:55px; accent-color:#4f46e5; }
+    .wb-size-label { font-size:0.58rem; color:rgba(255,255,255,0.35); min-width:22px; }
+
+    /* ── CAMERA ── */
+    .video-tile video { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
+    .cam-placeholder {
+      width:100%; height:100%; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:0.35rem; color:rgba(255,255,255,0.13);
+    }
+    .cam-placeholder svg { width:26px; height:26px; }
+    .cam-placeholder span { font-size:0.55rem; text-transform:uppercase; letter-spacing:0.08em; font-family:'JetBrains Mono',monospace !important; }
+    .ctrl-cam { background:rgba(244,63,94,0.18); color:#f43f5e; }
+    .ctrl-cam:hover { background:rgba(244,63,94,0.28); }
+    .ctrl-cam.active { background:rgba(255,255,255,0.08); color:white; }
+    .ctrl-cam.active:hover { background:rgba(255,255,255,0.14); }
+
+    /* ── PROFILE MODAL ── */
+    .profile-tabs { display:flex; border-bottom:1px solid #e0e3ef; margin-bottom:1.5rem; }
+    .profile-tab {
+      font-size:0.62rem; font-weight:500; text-transform:uppercase; letter-spacing:0.1em;
+      color:#9ca3af; padding:0.75rem 1.1rem; border-bottom:2px solid transparent;
+      transition:all 0.18s; cursor:pointer; background:none; border-left:none; border-right:none; border-top:none;
+    }
+    .profile-tab.active { color:#4f46e5; border-bottom-color:#4f46e5; }
+    .profile-panel { display:none; }
+    .profile-panel.active { display:block; }
+
+    /* Edit fields */
+    .edit-row { display:flex; flex-direction:column; gap:0.35rem; margin-bottom:1rem; }
+    .edit-label { font-size:0.6rem; text-transform:uppercase; letter-spacing:0.1em; color:#9ca3af; }
+    .edit-input {
+      width:100%; background:#f5f6fa; border:1.5px solid #e0e3ef;
+      border-radius:0.7rem; padding:0.75rem 0.9rem; font-size:0.88rem; color:#0d0f14;
+      outline:none; transition:border-color 0.18s, box-shadow 0.18s;
+      font-family:'DM Sans',sans-serif !important;
+    }
+    .edit-input:focus { border-color:#4f46e5; box-shadow:0 0 0 3px rgba(79,70,229,0.1); }
+    .edit-textarea { min-height:72px; resize:vertical; }
+    .btn-save {
+      width:100%; background:#4f46e5; color:white; padding:0.9rem;
+      border-radius:0.75rem; font-size:0.85rem; font-weight:700;
+      transition:all 0.18s; display:flex; align-items:center; justify-content:center;
+      gap:0.5rem; margin-top:0.25rem;
+    }
+    .btn-save:hover { background:#3730a3; transform:translateY(-1px); box-shadow:0 4px 14px rgba(79,70,229,0.35); }
+    .save-confirm { display:none; text-align:center; font-size:0.78rem; color:#10b981; margin-top:0.6rem; letter-spacing:0.04em; }
+
+    /* Peer actions */
+    .peer-actions { display:flex; gap:0.6rem; margin-top:1rem; }
+    .btn-peer { flex:1; padding:0.7rem; border-radius:0.7rem; font-size:0.78rem; font-weight:500; display:flex; align-items:center; justify-content:center; gap:0.4rem; transition:all 0.18s; font-family:'DM Sans',sans-serif !important; }
+    .btn-peer svg { width:13px; height:13px; flex-shrink:0; }
+    .btn-peer.outline { background:transparent; border:1.5px solid #e0e3ef; color:#374151; }
+    .btn-peer.outline:hover { border-color:#0d0f14; }
+    .btn-peer.danger { background:rgba(244,63,94,0.07); border:1.5px solid rgba(244,63,94,0.2); color:#f43f5e; }
+    .btn-peer.danger:hover { background:rgba(244,63,94,0.14); }
+
+    /* ── REPORT MODAL ── */
+    .report-reasons { display:flex; flex-direction:column; gap:0.45rem; margin-bottom:1.1rem; }
+    .report-reason {
+      display:flex; align-items:center; gap:0.7rem; padding:0.8rem 0.9rem;
+      border:1.5px solid #e0e3ef; border-radius:0.7rem; cursor:pointer; transition:all 0.16s;
+    }
+    .report-reason:hover { border-color:#f43f5e; background:rgba(244,63,94,0.03); }
+    .report-reason.selected { border-color:#f43f5e; background:rgba(244,63,94,0.05); }
+    .report-reason input[type=radio] { accent-color:#f43f5e; width:14px; height:14px; flex-shrink:0; cursor:pointer; }
+    .report-reason-label { font-size:0.85rem; font-weight:500; color:#0d0f14; font-family:'DM Sans',sans-serif !important; }
+    .report-textarea {
+      width:100%; background:#f5f6fa; border:1.5px solid #e0e3ef; border-radius:0.7rem;
+      padding:0.8rem 0.9rem; font-size:0.85rem; color:#0d0f14; outline:none;
+      resize:vertical; min-height:75px; transition:border-color 0.18s;
+      font-family:'DM Sans',sans-serif !important;
+    }
+    .report-textarea:focus { border-color:#f43f5e; box-shadow:0 0 0 3px rgba(244,63,94,0.08); }
+    .btn-report-submit {
+      width:100%; background:#f43f5e; color:white; padding:0.9rem;
+      border-radius:0.75rem; font-size:0.85rem; font-weight:700;
+      font-family:'Syne',sans-serif !important; transition:all 0.18s; margin-top:0.75rem;
+    }
+    .btn-report-submit:hover { background:#e11d48; }
+    .report-success { display:none; text-align:center; padding:2rem 1.5rem; }
+    .report-success svg { width:48px; height:48px; color:#10b981; margin:0 auto 1rem; display:block; }
+    .report-success-title { font-family:'Syne',sans-serif !important; font-size:1.2rem; font-weight:800; color:#0d0f14; margin-bottom:0.4rem; }
+    .report-success-sub { font-size:0.85rem; color:#6b7280; font-family:'DM Sans',sans-serif !important; }
+
+    /* ── MODAL scroll ── */
+    .modal { max-height:90vh; overflow-y:auto; }
+    .modal::-webkit-scrollbar { width:4px; }
+    .modal::-webkit-scrollbar-thumb { background:#e0e3ef; border-radius:2px; }
+
+    /* ── LOGIN STEP LABELS ── */
+    .lf-step-label {
+      display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;
+      font-family:'Syne',sans-serif !important; font-size:0.82rem; font-weight:700;
+      color:rgba(255,255,255,0.55); letter-spacing:0.01em;
+    }
+    .lf-step-num {
+      width:22px; height:22px; border-radius:50%; background:rgba(79,70,229,0.5);
+      color:#818cf8; font-size:0.68rem; font-weight:800; font-family:'Syne',sans-serif !important;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      border:1px solid rgba(129,140,248,0.4);
+    }
+    .lf-verify-sub { font-size:0.78rem; color:rgba(255,255,255,0.28); margin-bottom:1rem; margin-top:-0.3rem; }
+    .lf-required { color:#f87171; font-size:0.8em; }
+    .lf-error {
+      background:rgba(244,63,94,0.12); border:1px solid rgba(244,63,94,0.3);
+      color:#fca5a5; border-radius:0.6rem; padding:0.6rem 0.9rem;
+      font-size:0.78rem; margin-bottom:0.5rem; font-family:'DM Sans',sans-serif !important;
+    }
+    .btn-card { background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.2); }
+    .btn-card:hover::after { opacity:0.06; }
+
+    /* ── LOGIN FORM ── */
+    .login-card { overflow-y: auto; max-height: 100vh; }
+    .lf-row { display:flex; gap:0.7rem; margin-bottom:0.85rem; }
+    .lf-group { display:flex; flex-direction:column; gap:0.3rem; flex:1; margin-bottom:0.85rem; }
+    .lf-row .lf-group { margin-bottom:0; }
+    .lf-label {
+      font-family:'JetBrains Mono',monospace !important;
+      font-size:0.58rem; font-weight:500; text-transform:uppercase;
+      letter-spacing:0.1em; color:rgba(255,255,255,0.35);
+    }
+    .lf-optional { opacity:0.5; font-size:0.85em; text-transform:none; letter-spacing:0; }
+    .lf-input {
+      width:100%; background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.1);
+      border-radius:0.7rem; padding:0.75rem 0.9rem; font-size:0.88rem; color:white;
+      outline:none; transition:border-color 0.18s, background 0.18s;
+      font-family:'DM Sans',sans-serif !important;
+    }
+    .lf-input::placeholder { color:rgba(255,255,255,0.2); }
+    .lf-input:focus { border-color:rgba(129,140,248,0.7); background:rgba(255,255,255,0.09); }
+    .lf-textarea { min-height:66px; resize:none; }
+    .btn-enter {
+      width:100%; background:linear-gradient(135deg,#4f46e5,#818cf8);
+      color:white; padding:1rem; border-radius:0.85rem;
+      font-family:'Syne',sans-serif !important; font-size:0.9rem; font-weight:700;
+      display:flex; align-items:center; justify-content:center; gap:0.6rem;
+      transition:all 0.2s; box-shadow:0 4px 20px rgba(79,70,229,0.4);
+      letter-spacing:0.01em; margin-bottom:0;
+    }
+    .btn-enter:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(79,70,229,0.55); }
+    .btn-enter:active { transform:translateY(0); }
+    .lf-divider {
+      display:flex; align-items:center; gap:0.75rem;
+      margin:1.5rem 0 1rem; color:rgba(255,255,255,0.18);
+      font-family:'JetBrains Mono',monospace !important;
+      font-size:0.58rem; text-transform:uppercase; letter-spacing:0.1em;
+    }
+    .lf-divider::before,.lf-divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.08); }
+    .btn-disabled { opacity:0.42 !important; cursor:not-allowed !important; filter:grayscale(0.3); }
+    .btn-disabled:hover::after { opacity:0 !important; }
+    .btn-card { background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.2); }
+    .badge-soon {
+      font-family:'JetBrains Mono',monospace !important;
+      font-size:0.55rem; letter-spacing:0.08em; text-transform:uppercase;
+      background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.4);
+      padding:0.2rem 0.55rem; border-radius:0.4rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOGIN
+     ══════════════════════════════════════ -->
+<div id="view-login" class="view">
+  <div class="login-card" style="max-width:460px;">
+
+    <div class="login-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+    </div>
+    <h1 class="login-title">WeCoLearn</h1>
+    <p class="login-sub">Renseignez votre profil, puis vérifiez votre identité pour accéder.</p>
+
+    <!-- STEP 1 LABEL -->
+    <div class="lf-step-label"><span class="lf-step-num">1</span> Votre profil</div>
+    <form id="login-profile-form" autocomplete="off">
+      <div class="lf-row">
+        <div class="lf-group">
+          <label class="lf-label" for="lf-firstname">Prénom</label>
+          <input class="lf-input" id="lf-firstname" type="text" placeholder="Ex: Amina" maxlength="40" required />
+        </div>
+        <div class="lf-group">
+          <label class="lf-label" for="lf-lastname">Nom</label>
+          <input class="lf-input" id="lf-lastname" type="text" placeholder="Ex: Nassiri" maxlength="40" required />
+        </div>
+      </div>
+      <div class="lf-group">
+        <label class="lf-label" for="lf-school">École / Université</label>
+        <input class="lf-input" id="lf-school" type="text" placeholder="Ex: Université Mohammed V" maxlength="80" />
+      </div>
+      <div class="lf-group">
+        <label class="lf-label" for="lf-role">Rôle / Spécialité</label>
+        <input class="lf-input" id="lf-role" type="text" placeholder="Ex: Étudiante en Cyber Sécurité" maxlength="60" />
+      </div>
+      <div class="lf-group">
+        <label class="lf-label" for="lf-bio">Bio <span class="lf-optional">(facultatif)</span></label>
+        <textarea class="lf-input lf-textarea" id="lf-bio" placeholder="Quelques mots sur vous..." maxlength="200"></textarea>
+      </div>
+      <div id="lf-error" class="lf-error" style="display:none;">Veuillez renseigner votre prénom et nom avant de continuer.</div>
+    </form>
+
+    <!-- STEP 2 LABEL -->
+    <div class="lf-step-label" style="margin-top:1.4rem;">
+      <span class="lf-step-num">2</span> Vérifier et accéder
+    </div>
+    <p class="lf-verify-sub">Choisissez une méthode pour confirmer votre identité et entrer.</p>
+
+    <!-- AUTH BUTTONS -->
+    <div class="login-btns">
+      <button class="btn-login btn-linkedin" data-verify="linkedin">
+        <span class="btn-login-left">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/>
+            <rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>
+          </svg>
+          <span>Continuer avec LinkedIn</span>
+        </span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;opacity:0.55"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+      <button class="btn-login btn-nci" data-verify="nfc">
+        <span class="btn-login-left">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 7 3 3 7 3"/><polyline points="17 3 21 3 21 7"/>
+            <polyline points="21 17 21 21 17 21"/><polyline points="7 21 3 21 3 17"/>
+            <rect x="7" y="7" width="10" height="10" rx="1"/>
+          </svg>
+          <span>CNI / NFC</span>
+        </span>
+        <span class="badge-secure">Sécurisé</span>
+      </button>
+      <button class="btn-login btn-card" data-verify="card">
+        <span class="btn-login-left">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="2"/>
+            <line x1="2" y1="10" x2="22" y2="10"/>
+            <line x1="6" y1="15" x2="10" y2="15"/>
+          </svg>
+          <span>Carte étudiante</span>
+        </span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;opacity:0.55"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+
+    <div class="login-footer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      Connexion chiffrée de bout en bout
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     DASHBOARD
+     ══════════════════════════════════════ -->
+<div id="view-dashboard" class="view">
+  <header class="dash-header">
+    <div class="dash-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      WeCoLearn
+    </div>
+    <button class="dash-profile-btn" id="dash-profile-btn">
+      <div class="avatar avatar-sm" id="dash-user-avatar">WB</div>
+      <div class="dash-profile-info">
+        <div class="dash-profile-name" id="dash-user-name">Wiame Boumalik</div>
+        <div class="dash-profile-label">Mon Profil</div>
+      </div>
+    </button>
+  </header>
+  <main class="dash-main">
+    <div class="dash-hero">
+      <div>
+        <h2 class="dash-greeting" id="dash-greeting">Bonjour,</h2>
+        <p class="dash-sub">Prêt pour une session d'étude efficace ?</p>
+      </div>
+      <button class="btn-create" id="btn-create-room">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Créer une Room
+      </button>
+    </div>
+    <div class="rooms-section-title">Salles actives</div>
+    <div class="rooms-grid" id="rooms-grid"></div>
+  </main>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     STUDY ROOM
+     ══════════════════════════════════════ -->
+<div id="view-room" class="view">
+
+  <div class="room-header">
+    <div class="room-header-left">
+      <button class="btn-leave" data-action="leave-room">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Quitter
+      </button>
+      <h2 class="room-name" id="room-name">
+        <span class="room-color-dot"></span>Salle d'étude
+      </h2>
+    </div>
+    <div class="room-avatars" id="room-avatars"></div>
+  </div>
+
+  <div class="room-body">
+
+    <!-- MAIN PANEL -->
+    <div class="room-main">
+      <div class="room-tabs">
+        <button class="room-tab active" data-tab="notes">📝 Notes</button>
+        <button class="room-tab" data-tab="whiteboard">🎨 Tableau Blanc</button>
+      </div>
+
+      <div class="room-content">
+
+        <!-- Notes -->
+        <div class="tab-pane active" data-tab-content="notes">
+          <div class="notes-label" style="margin-bottom:0.65rem;flex-shrink:0;">Notes de session</div>
+          <textarea class="notes-editor" placeholder="Vos notes ici...&#10;• Idées, formules, liens&#10;• Ctrl+A pour tout sélectionner"></textarea>
+        </div>
+
+        <!-- Whiteboard -->
+        <div class="tab-pane" data-tab-content="whiteboard">
+          <div class="wb-toolbar">
+            <div class="wb-color active" data-color="#ffffff" style="background:#fff;" title="Blanc"></div>
+            <div class="wb-color" data-color="#818cf8" style="background:#818cf8;" title="Indigo"></div>
+            <div class="wb-color" data-color="#34d399" style="background:#34d399;" title="Vert"></div>
+            <div class="wb-color" data-color="#f87171" style="background:#f87171;" title="Rouge"></div>
+            <div class="wb-color" data-color="#fbbf24" style="background:#fbbf24;" title="Jaune"></div>
+            <div class="wb-color" data-color="#60a5fa" style="background:#60a5fa;" title="Bleu"></div>
+            <div class="wb-color" data-color="#f0abfc" style="background:#f0abfc;" title="Rose"></div>
+            <div class="wb-sep"></div>
+            <button class="wb-btn active" data-tool="pen">✏ Stylo</button>
+            <button class="wb-btn" data-tool="eraser">⌫ Gomme</button>
+            <div class="wb-sep"></div>
+            <div class="wb-size">
+              <input type="range" id="wb-size" min="1" max="30" value="4">
+              <span class="wb-size-label" id="wb-size-label">4px</span>
+            </div>
+            <div class="wb-sep"></div>
+            <button class="wb-btn" id="wb-clear">🗑 Effacer</button>
+          </div>
+          <canvas id="whiteboard-canvas"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="room-sidebar">
+
+      <!-- Camera tiles -->
+      <div class="sidebar-videos" id="sidebar-videos" style="overflow-y:auto;max-height:260px;">
+        <div class="video-tile" id="tile-self" style="cursor:default;">
+          <div class="cam-placeholder" id="cam-placeholder-self">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            <span>Caméra off</span>
+          </div>
+          <video id="video-self" autoplay muted playsinline style="display:none;"></video>
+          <div class="video-label">Vous</div>
+        </div>
+        <!-- peer tiles injected by app.js -->
+      </div>
+
+      <!-- Chat -->
+      <div class="chat-panel">
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-empty">Aucun message pour l'instant</div>
+        </div>
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" class="chat-input" placeholder="Écrire un message..." autocomplete="off"/>
+            <button class="btn-send" id="btn-send">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="room-controls">
+    <button class="ctrl-btn ctrl-mic muted" id="ctrl-mic" title="Activer le micro">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+        <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn ctrl-cam" id="ctrl-cam" title="Activer la caméra">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+      </svg>
+    </button>
+    <button class="btn-end-session" data-action="leave-room">Finir la session</button>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════
+     MODAL: PROFILE
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal modal-wrapper">
+    <button class="modal-close" id="profile-modal-close">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+
+    <div class="profile-modal-header">
+      <div class="avatar avatar-lg" id="profile-modal-avatar">WB</div>
+      <div class="profile-name" id="profile-modal-name">Wiame Boumalik</div>
+      <div class="profile-school" id="profile-modal-school">Université Mohammed V</div>
+    </div>
+
+    <div class="profile-modal-body">
+      <!-- Tabs — hidden for peers -->
+      <div class="profile-tabs" id="profile-tabs">
+        <button class="profile-tab active" data-ptab="view">Profil</button>
+        <button class="profile-tab" data-ptab="edit">✏ Modifier</button>
+      </div>
+
+      <!-- VIEW panel -->
+      <div class="profile-panel active" data-ptab-content="view">
+        <div class="profile-bio" id="profile-modal-bio">"Future chercheuse en IA."</div>
+        <div class="peer-actions" id="peer-actions" style="display:none;">
+          <button class="btn-peer outline" id="btn-message-peer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Message
+          </button>
+          <button class="btn-peer danger" id="btn-report-peer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            Signaler
+          </button>
+        </div>
+      </div>
+
+      <!-- EDIT panel -->
+      <div class="profile-panel" data-ptab-content="edit" id="edit-panel">
+        <div class="edit-row">
+          <label class="edit-label">Nom complet</label>
+          <input class="edit-input" id="edit-name" type="text" placeholder="Votre nom"/>
+        </div>
+        <div class="edit-row">
+          <label class="edit-label">École / Université</label>
+          <input class="edit-input" id="edit-school" type="text" placeholder="Université Mohammed V"/>
+        </div>
+        <div class="edit-row">
+          <label class="edit-label">Rôle / Spécialité</label>
+          <input class="edit-input" id="edit-role" type="text" placeholder="Ex: Étudiante en IA"/>
+        </div>
+        <div class="edit-row">
+          <label class="edit-label">Bio</label>
+          <textarea class="edit-input edit-textarea" id="edit-bio" placeholder="Quelques mots sur vous..."></textarea>
+        </div>
+        <button class="btn-save" id="btn-save-profile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Sauvegarder le profil
+        </button>
+        <div class="save-confirm" id="save-confirm">✓ Profil mis à jour</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     MODAL: REPORT
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-report">
+  <div class="modal modal-wrapper">
+    <button class="modal-close" id="report-modal-close">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <!-- Form -->
+    <div id="report-form-wrap" style="padding:2.25rem;">
+      <h3 style="font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:800;color:#0d0f14;letter-spacing:-0.02em;margin-bottom:0.25rem;">Signaler un utilisateur</h3>
+      <p id="report-target-name" style="font-size:0.82rem;color:#9ca3af;margin-bottom:1.4rem;">—</p>
+      <div class="report-reasons">
+        <label class="report-reason"><input type="radio" name="rr" value="comportement"><span class="report-reason-label">Comportement inapproprié</span></label>
+        <label class="report-reason"><input type="radio" name="rr" value="harcelement"><span class="report-reason-label">Harcèlement ou intimidation</span></label>
+        <label class="report-reason"><input type="radio" name="rr" value="spam"><span class="report-reason-label">Spam ou contenu non pertinent</span></label>
+        <label class="report-reason"><input type="radio" name="rr" value="contenu"><span class="report-reason-label">Contenu offensant ou illégal</span></label>
+        <label class="report-reason"><input type="radio" name="rr" value="autre"><span class="report-reason-label">Autre raison</span></label>
+      </div>
+      <textarea class="report-textarea" id="report-details" placeholder="Détails supplémentaires (facultatif)..."></textarea>
+      <button class="btn-report-submit" id="btn-submit-report">Envoyer le signalement</button>
+    </div>
+    <!-- Success -->
+    <div class="report-success" id="report-success">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <div class="report-success-title">Signalement envoyé</div>
+      <div class="report-success-sub">Notre équipe examinera ce signalement rapidement. Merci de contribuer à la sécurité de la communauté.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     MODAL: CREATE ROOM
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <div style="padding:2.5rem;position:relative;">
+      <button class="modal-close" id="create-modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <h3 style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:#0d0f14;letter-spacing:-0.03em;text-align:center;margin-bottom:0.35rem;">Nouvel Espace</h3>
+      <p style="text-align:center;font-size:0.82rem;color:#9ca3af;margin-bottom:2rem;">Donnez un nom à votre salle d'étude.</p>
+      <form id="create-room-form">
+        <div style="margin-bottom:1.5rem;">
+          <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:0.5rem;" for="create-room-input">Nom de la salle</label>
+          <input type="text" id="create-room-input" class="edit-input" placeholder="Ex: Révision Cyber Sécurité" maxlength="60" autocomplete="off"/>
+        </div>
+        <button type="submit" style="width:100%;background:#4f46e5;color:white;padding:1rem;border-radius:0.75rem;font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:0.5rem;transition:all 0.18s;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Lancer la room
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     SCRIPTS
+     CHANGE 1: Socket.IO client added before app.js
+     ══════════════════════════════════════ -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════
+   FEATURE EXTENSIONS — runs after app.js
+   ════════════════════════════════════════════════════════ */
+'use strict';
+
+/* ── 1. OVERRIDE openProfileModal ── */
+function openProfileModal(userData, isOwnProfile) {
+  document.getElementById('profile-modal-avatar').textContent = userData.avatar || '?';
+  document.getElementById('profile-modal-name').textContent   = userData.name   || '—';
+  document.getElementById('profile-modal-school').textContent = userData.school || '—';
+  document.getElementById('profile-modal-bio').textContent    = userData.bio ? `"${userData.bio}"` : 'Aucune biographie.';
+
+  document.getElementById('profile-tabs').style.display  = isOwnProfile ? 'flex'  : 'none';
+  document.getElementById('edit-panel').style.display    = isOwnProfile ? 'block' : 'none';
+  document.getElementById('peer-actions').style.display  = isOwnProfile ? 'none'  : 'flex';
+
+  if (isOwnProfile) {
+    document.getElementById('edit-name').value   = userData.name   || '';
+    document.getElementById('edit-school').value = userData.school || '';
+    document.getElementById('edit-role').value   = userData.role   || '';
+    document.getElementById('edit-bio').value    = userData.bio    || '';
+  }
+
+  document.querySelectorAll('[data-ptab]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('[data-ptab-content]').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-ptab="view"]')?.classList.add('active');
+  document.querySelector('[data-ptab-content="view"]')?.classList.add('active');
+
+  window._profilePeer = isOwnProfile ? null : userData;
+  document.getElementById('modal-profile').classList.add('open');
+}
+
+/* ── 2. PROFILE TABS ── */
+document.querySelectorAll('[data-ptab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-ptab]').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[data-ptab-content]').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector(`[data-ptab-content="${btn.dataset.ptab}"]`)?.classList.add('active');
+  });
+});
+
+/* ── 3. SAVE PROFILE — CHANGE 2: calls PATCH /api/users/:id ── */
+document.getElementById('btn-save-profile')?.addEventListener('click', async () => {
+  const n = document.getElementById('edit-name').value.trim();
+  const s = document.getElementById('edit-school').value.trim();
+  const r = document.getElementById('edit-role').value.trim();
+  const b = document.getElementById('edit-bio').value.trim();
+
+  if (n) { AppState.currentUser.name = n; AppState.currentUser.avatar = n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+  if (s) AppState.currentUser.school = s;
+  if (r) AppState.currentUser.role   = r;
+  if (b) AppState.currentUser.bio    = b;
+
+  document.getElementById('dash-user-name').textContent       = AppState.currentUser.name;
+  document.getElementById('dash-user-avatar').textContent     = AppState.currentUser.avatar;
+  document.getElementById('profile-modal-avatar').textContent = AppState.currentUser.avatar;
+  document.getElementById('profile-modal-name').textContent   = AppState.currentUser.name;
+  document.getElementById('profile-modal-school').textContent = AppState.currentUser.school;
+  document.getElementById('profile-modal-bio').textContent    = `"${AppState.currentUser.bio}"`;
+
+  // Persist to backend
+  if (AppState.currentUser.id) {
+    try {
+      await fetch('/api/users/' + AppState.currentUser.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: n, school: s, role: r, bio: b }),
+      });
+    } catch(e) { console.error('Profile save error:', e); }
+  }
+
+  const c = document.getElementById('save-confirm');
+  c.style.display = 'block';
+  setTimeout(() => c.style.display = 'none', 2800);
+});
+
+/* ── 4. CLOSE PROFILE MODAL ── */
+document.getElementById('profile-modal-close')?.addEventListener('click', () => document.getElementById('modal-profile').classList.remove('open'));
+document.getElementById('modal-profile')?.addEventListener('click', e => { if(e.target.id==='modal-profile') document.getElementById('modal-profile').classList.remove('open'); });
+
+/* ── 5. REPORT MODAL ── */
+document.getElementById('btn-report-peer')?.addEventListener('click', () => {
+  document.getElementById('modal-profile').classList.remove('open');
+  const peer = window._profilePeer;
+  document.getElementById('report-target-name').textContent = peer ? `Signalement concernant : ${peer.name}` : '—';
+  document.getElementById('report-form-wrap').style.display = 'block';
+  document.getElementById('report-success').style.display   = 'none';
+  document.querySelectorAll('input[name="rr"]').forEach(r => r.checked = false);
+  document.querySelectorAll('.report-reason').forEach(r => r.classList.remove('selected'));
+  document.getElementById('report-details').value = '';
+  document.getElementById('modal-report').classList.add('open');
+});
+
+document.querySelectorAll('.report-reason').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.report-reason').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+  });
+});
+
+/* ── SUBMIT REPORT — CHANGE 3: calls POST /api/reports ── */
+document.getElementById('btn-submit-report')?.addEventListener('click', async () => {
+  const reason = document.querySelector('input[name="rr"]:checked')?.value;
+  if (!reason) { alert('Veuillez sélectionner une raison.'); return; }
+
+  try {
+    await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetUserId: window._profilePeer?.id,
+        reason:       reason,
+        details:      document.getElementById('report-details').value.trim(),
+        reportedBy:   AppState.currentUser.id,
+      }),
+    });
+  } catch(e) { console.error('Report error:', e); }
+
+  document.getElementById('report-form-wrap').style.display = 'none';
+  document.getElementById('report-success').style.display   = 'block';
+  setTimeout(() => document.getElementById('modal-report').classList.remove('open'), 2800);
+});
+
+document.getElementById('report-modal-close')?.addEventListener('click', () => document.getElementById('modal-report').classList.remove('open'));
+document.getElementById('modal-report')?.addEventListener('click', e => { if(e.target.id==='modal-report') document.getElementById('modal-report').classList.remove('open'); });
+
+/* ── 6. MESSAGE PEER (focuses chat) ── */
+document.getElementById('btn-message-peer')?.addEventListener('click', () => {
+  document.getElementById('modal-profile').classList.remove('open');
+  setTimeout(() => document.getElementById('chat-input')?.focus(), 150);
+});
+
+/* ── 7. CAMERA ── */
+let _camStream = null;
+document.getElementById('ctrl-cam')?.addEventListener('click', async () => {
+  const btn = document.getElementById('ctrl-cam');
+  const vid = document.getElementById('video-self');
+  const ph  = document.getElementById('cam-placeholder-self');
+  if (_camStream) {
+    _camStream.getTracks().forEach(t => t.stop());
+    _camStream = null;
+    vid.srcObject = null; vid.style.display = 'none'; ph.style.display = 'flex';
+    btn.classList.remove('active');
+    btn.title = 'Activer la caméra';
+  } else {
+    try {
+      _camStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+      vid.srcObject = _camStream; vid.style.display = 'block'; ph.style.display = 'none';
+      btn.classList.add('active');
+      btn.title = 'Désactiver la caméra';
+    } catch(e) {
+      alert("Impossible d'accéder à la caméra.\nVérifiez que vous avez accordé la permission dans votre navigateur.");
+    }
+  }
+});
+
+/* ── 8. WHITEBOARD ── */
+(function() {
+  const canvas = document.getElementById('whiteboard-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let drawing=false, tool='pen', color='#ffffff', size=4, lx=0, ly=0;
+
+  function resizeCanvas() {
+    const parent = canvas.parentElement;
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    canvas.width  = parent.clientWidth  || 800;
+    canvas.height = parent.clientHeight - 10 || 500;
+    try { ctx.putImageData(img, 0, 0); } catch(e){}
+  }
+
+  document.querySelector('[data-tab="whiteboard"]')?.addEventListener('click', () => setTimeout(resizeCanvas, 60));
+  window.addEventListener('resize', () => { if(document.querySelector('[data-tab="whiteboard"]')?.classList.contains('active')) resizeCanvas(); });
+
+  function pt(e) {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  }
+
+  canvas.addEventListener('mousedown',  e => { drawing=true; const p=pt(e); lx=p.x; ly=p.y; });
+  canvas.addEventListener('mousemove',  e => {
+    if (!drawing) return;
+    const p = pt(e);
+    ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y);
+    ctx.strokeStyle = tool==='eraser' ? '#0a0e1a' : color;
+    ctx.lineWidth   = tool==='eraser' ? size*5 : size;
+    ctx.lineCap = ctx.lineJoin = 'round';
+    ctx.stroke(); lx=p.x; ly=p.y;
+  });
+  canvas.addEventListener('mouseup',    () => drawing=false);
+  canvas.addEventListener('mouseleave', () => drawing=false);
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing=true; const p=pt(e); lx=p.x; ly=p.y; }, {passive:false});
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); if(!drawing) return; const p=pt(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.strokeStyle=tool==='eraser'?'#0a0e1a':color; ctx.lineWidth=tool==='eraser'?size*5:size; ctx.lineCap=ctx.lineJoin='round'; ctx.stroke(); lx=p.x; ly=p.y; }, {passive:false});
+  canvas.addEventListener('touchend',   () => drawing=false);
+
+  document.querySelectorAll('.wb-color').forEach(el => el.addEventListener('click', () => {
+    document.querySelectorAll('.wb-color').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active'); color=el.dataset.color; tool='pen';
+    document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));
+    document.querySelector('[data-tool="pen"]')?.classList.add('active');
+  }));
+
+  document.querySelectorAll('[data-tool]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); tool=btn.dataset.tool;
+  }));
+
+  document.getElementById('wb-size')?.addEventListener('input', function() {
+    size=parseInt(this.value);
+    document.getElementById('wb-size-label').textContent = size+'px';
+  });
+
+  document.getElementById('wb-clear')?.addEventListener('click', () => {
+    if(confirm('Effacer tout le tableau blanc ?')) ctx.clearRect(0,0,canvas.width,canvas.height);
+  });
+})();
+
+/* ── LOGIN: collect profile then verify ── */
+function collectProfile() {
+  const first  = document.getElementById('lf-firstname').value.trim();
+  const last   = document.getElementById('lf-lastname').value.trim();
+  const school = document.getElementById('lf-school').value.trim();
+  const role   = document.getElementById('lf-role').value.trim();
+  const bio    = document.getElementById('lf-bio').value.trim();
+  const err    = document.getElementById('lf-error');
+
+  if (!first || !last) {
+    err.style.display = 'block';
+    (!first ? document.getElementById('lf-firstname') : document.getElementById('lf-lastname')).focus();
+    return null;
+  }
+  err.style.display = 'none';
+
+  const fullName = first + ' ' + last;
+  const avatar   = (first[0] + last[0]).toUpperCase();
+  return { name: fullName, avatar, school, role, bio };
+}
+
+/* ── applyProfileAndEnter — only creates a NEW user if no id exists yet ── */
+async function applyProfileAndEnter(profile) {
+  AppState.currentUser.name   = profile.name;
+  AppState.currentUser.avatar = profile.avatar;
+  AppState.currentUser.school = profile.school;
+  AppState.currentUser.role   = profile.role;
+  AppState.currentUser.bio    = profile.bio;
+
+  // If profile already has an id (returning user), skip POST and reuse it
+  if (profile.id) {
+    AppState.currentUser.id = profile.id;
+  } else {
+    // Brand new user — register on backend
+    try {
+      const res  = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      const user = await res.json();
+      AppState.currentUser.id = user.id;
+      profile.id = user.id;
+    } catch(e) {
+      console.error('Registration error:', e);
+    }
+  }
+
+  // Always save full profile + id to localStorage so refresh restores it
+  try { localStorage.setItem('wcl_profile', JSON.stringify({
+    id:     AppState.currentUser.id,
+    name:   AppState.currentUser.name,
+    avatar: AppState.currentUser.avatar,
+    school: AppState.currentUser.school,
+    role:   AppState.currentUser.role,
+    bio:    AppState.currentUser.bio,
+  })); } catch(e) {}
+
+  navigate('dashboard');
+  renderDashboard();
+}
+
+/* Auth buttons */
+document.querySelectorAll('[data-verify]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const profile = collectProfile();
+    if (!profile) return;
+    applyProfileAndEnter(profile);
+  });
+});
+
+/* Prevent form submitting on Enter */
+document.getElementById('login-profile-form')?.addEventListener('submit', e => e.preventDefault());
+
+/* ══════════════════════════════════════════════════
+   AUTO-LOGIN ON PAGE LOAD / REFRESH
+   If localStorage has a saved profile with an id,
+   skip the login page entirely and go straight to
+   the dashboard as the SAME user.
+   ══════════════════════════════════════════════════ */
+(function() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('wcl_profile') || 'null');
+    if (saved && saved.name && saved.id) {
+      // Restore full AppState from localStorage
+      AppState.currentUser.id     = saved.id;
+      AppState.currentUser.name   = saved.name;
+      AppState.currentUser.avatar = saved.avatar || saved.name[0].toUpperCase();
+      AppState.currentUser.school = saved.school || '';
+      AppState.currentUser.role   = saved.role   || '';
+      AppState.currentUser.bio    = saved.bio     || '';
+
+      // Also pre-fill the login form fields (in case they log out and back in)
+      const parts = saved.name.split(' ');
+      document.getElementById('lf-firstname').value = parts[0] || '';
+      document.getElementById('lf-lastname').value  = parts.slice(1).join(' ') || '';
+      document.getElementById('lf-school').value    = saved.school || '';
+      document.getElementById('lf-role').value      = saved.role   || '';
+      document.getElementById('lf-bio').value       = saved.bio    || '';
+
+      // Skip login page — go directly to dashboard
+      navigate('dashboard');
+      renderDashboard();
+      return;
+    }
+  } catch(e) {}
+  // No saved session → stay on login page (default)
+})();
+
+</script>
+</body>
+</html>
